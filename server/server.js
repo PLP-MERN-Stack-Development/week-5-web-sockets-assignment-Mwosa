@@ -15,7 +15,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    origin: process.env.CLIENT_URL || 'http://localhost:3000',
     methods: ['GET', 'POST'],
     credentials: true,
   },
@@ -91,6 +91,23 @@ io.on('connection', (socket) => {
     
     socket.to(to).emit('private_message', messageData);
     socket.emit('private_message', messageData);
+  });
+
+  // Handle message reactions
+  socket.on('add_reaction', ({ messageId, emoji }) => {
+    // Find the message
+    const msgIdx = messages.findIndex((m) => m.id === messageId);
+    if (msgIdx !== -1) {
+      const msg = messages[msgIdx];
+      if (!msg.reactions) msg.reactions = {};
+      if (!msg.reactions[emoji]) msg.reactions[emoji] = [];
+      // Prevent duplicate reactions from the same user
+      if (!msg.reactions[emoji].includes(socket.id)) {
+        msg.reactions[emoji].push(socket.id);
+      }
+      // Broadcast the updated message
+      io.emit('update_message', msg);
+    }
   });
 
   // Handle disconnection
